@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Turanlar · Fiyat Sorgu</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#14181a;
+    --surface:#1b2124;
+    --surface-2:#232b2f;
+    --line:#2e393d;
+    --text:#e9efeb;
+    --muted:#8a9a94;
+    --accent:#ff6a1a;
+    --ok:#4ea86b;
+    --low:#e0a53d;
+    --out:#e0533d;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --ui:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--text);font-family:var(--ui);
+    -webkit-font-smoothing:antialiased;
+    display:flex;justify-content:center;
+  }
+  .app{width:100%;max-width:460px;min-height:100vh;display:flex;flex-direction:column;padding:0 16px 24px}
+
+  /* Header */
+  header{position:relative;padding:20px 4px 16px;overflow:hidden}
+  header .contour{position:absolute;inset:0;opacity:.14;pointer-events:none}
+  .brand{display:flex;align-items:center;justify-content:space-between;position:relative}
+  .brand .name{font-weight:700;letter-spacing:.14em;font-size:12px;text-transform:uppercase;color:var(--text)}
+  .brand .name b{color:var(--accent)}
+  .sync{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);font-family:var(--mono)}
+  .sync .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px rgba(78,168,107,.15)}
+  h1{position:relative;margin-top:14px;font-size:23px;line-height:1.15;font-weight:650}
+  h1 span{color:var(--muted);font-weight:400;display:block;font-size:13px;margin-top:4px;letter-spacing:.01em}
+
+  /* Scan input */
+  .scanbox{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}
+  .field{display:flex;gap:8px;align-items:stretch}
+  .field input{
+    flex:1;min-width:0;background:var(--surface-2);border:1px solid var(--line);border-radius:11px;
+    color:var(--text);font-family:var(--mono);font-size:17px;letter-spacing:.04em;padding:13px 14px;
+  }
+  .field input::placeholder{color:#5c6a66;letter-spacing:normal;font-family:var(--ui);font-size:14px}
+  .field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(255,106,26,.14)}
+  .btn{border:none;border-radius:11px;font-family:var(--ui);font-weight:600;font-size:14px;cursor:pointer;padding:0 16px;color:#14181a;background:var(--accent);white-space:nowrap}
+  .btn:active{transform:translateY(1px)}
+  .btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+  .row2{display:flex;gap:8px;margin-top:10px}
+  .row2 .btn{flex:1;height:44px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .hint{margin-top:10px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.5}
+
+  /* Camera */
+  #reader{margin-top:12px;border-radius:12px;overflow:hidden;display:none;border:1px solid var(--line)}
+  #reader.on{display:block}
+
+  /* Result */
+  .result{margin-top:16px;flex:1}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:18px;animation:pop .18s ease}
+  @keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+  .pname{font-size:16px;font-weight:600;line-height:1.3}
+  .badge{flex-shrink:0;font-family:var(--mono);font-size:11px;font-weight:600;padding:5px 9px;border-radius:8px;white-space:nowrap;letter-spacing:.02em}
+  .badge.ok{color:var(--ok);background:rgba(78,168,107,.13)}
+  .badge.low{color:var(--low);background:rgba(224,165,61,.13)}
+  .badge.out{color:var(--out);background:rgba(224,83,61,.13)}
+  .priceblock{margin-top:18px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .price{font-family:var(--mono);font-size:46px;font-weight:600;letter-spacing:-.02em;line-height:1;color:var(--accent)}
+  .price .cur{font-size:20px;color:var(--text);margin-left:4px}
+  .oldprice{font-family:var(--mono);font-size:17px;color:var(--muted);text-decoration:line-through}
+  .kdv{margin-top:8px;font-size:12px;color:var(--muted)}
+  .meta{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);display:flex;gap:22px}
+  .meta div{font-size:12px;color:var(--muted)}
+  .meta b{display:block;font-family:var(--mono);font-size:15px;color:var(--text);margin-top:3px;font-weight:500}
+
+  .notfound{background:var(--surface);border:1px dashed var(--out);border-radius:18px;padding:22px 18px;text-align:center;animation:pop .18s ease}
+  .notfound .big{font-size:15px;font-weight:600;color:var(--out)}
+  .notfound .sub{margin-top:6px;font-size:13px;color:var(--muted)}
+  .notfound .code{font-family:var(--mono);color:var(--text);margin-top:10px;font-size:14px}
+
+  .placeholder{text-align:center;color:var(--muted);padding:34px 18px;font-size:13.5px;line-height:1.6}
+  .placeholder svg{margin-bottom:12px;opacity:.5}
+
+  /* Test chips */
+  .chips{margin-top:16px}
+  .chips .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  .chips .list{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{background:var(--surface-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:12px;padding:8px 11px;border-radius:9px;cursor:pointer}
+  .chip:active{border-color:var(--accent)}
+
+  /* Recent */
+  .recent{margin-top:22px}
+  .recent .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px}
+  .recent .item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .recent .item .n{color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:62%}
+  .recent .item .p{font-family:var(--mono);color:var(--accent);font-weight:600}
+  .recent .item.miss .p{color:var(--out)}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <svg class="contour" viewBox="0 0 460 140" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke="#ff6a1a" stroke-width="1">
+        <path d="M-10 90 C 60 60, 120 120, 200 84 S 360 40, 470 78"/>
+        <path d="M-10 110 C 70 82, 140 138, 220 104 S 380 66, 470 100"/>
+        <path d="M-10 66 C 80 44, 150 96, 230 60 S 380 22, 470 54"/>
+      </g>
+    </svg>
+    <div class="brand">
+      <div class="name">TURANLAR <b>· FİYAT SORGU</b></div>
+      <div class="sync"><span class="dot"></span><span id="syncTime">senkron 2 dk önce</span></div>
+    </div>
+    <h1>Barkodu okut, fiyatı gör
+      <span>Personel fiyat &amp; stok kontrol ekranı</span>
+    </h1>
+  </header>
+
+  <div class="scanbox">
+    <div class="field">
+      <input id="barcode" inputmode="numeric" autocomplete="off" placeholder="Barkodu okutun ya da yazın" autofocus>
+      <button class="btn" id="lookupBtn">Sorgula</button>
+    </div>
+    <div class="row2">
+      <button class="btn ghost" id="camBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Kamerayla tara
+      </button>
+      <button class="btn ghost" id="clearBtn">Temizle</button>
+    </div>
+    <div id="reader"></div>
+    <div class="hint">El tipi barkod okuyucu bağlıysa doğrudan okutabilirsiniz — cihaz klavye gibi yazar, ekrana dokunmanıza gerek yok.</div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="placeholder">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14M21 5v14"/></svg>
+      <div>Sonuç burada görünecek.<br>Bir barkod okutun veya aşağıdaki test barkodlarından birine dokunun.</div>
+    </div>
+  </div>
+
+  <div class="chips">
+    <div class="lbl">Test barkodları</div>
+    <div class="list" id="chipList"></div>
+  </div>
+
+  <div class="recent" id="recentWrap" style="display:none">
+    <div class="lbl">Son taranan</div>
+    <div id="recentList"></div>
+  </div>
+</div>
+
+<script>
+/* ------------------------------------------------------------------
+   DEMO VERİSİ
+   Gerçekte bu tablo, arka plan servisinin XML feed'ini senkronlayıp
+   doldurduğu barkod -> ürün eşlemesidir. Uygulama sunucuya
+   GET /fiyat/{barkod} atar; burada demo için gömülü tutuyoruz.
+   ------------------------------------------------------------------ */
+const URUNLER = {
+  "7611160504371": { ad:"Victorinox 5.7703.18 Kasap Yüzme Bıçağı", satis:575.82, indirimli:0,    stok:0,  stokKodu:"5.7703.18" },
+  "7611160512345": { ad:"Victorinox Huntsman Çakı",                 satis:1290.00, indirimli:1090.0, stok:14, stokKodu:"1.3713"    },
+  "8681000112233": { ad:"Salewa MTN Trainer Outdoor Bot",          satis:4850.00, indirimli:0,    stok:3,  stokKodu:"SAL-MTN-42" },
+  "8690000445566": { ad:"Deuter Futura 30 Sırt Çantası",           satis:3120.00, indirimli:2650.0, stok:9,  stokKodu:"DEU-FUT30" },
+  "5901234123457": { ad:"Petzl Tikka Kafa Lambası 350lm",          satis:980.00,  indirimli:0,    stok:1,  stokKodu:"PTZ-TIKKA" },
+};
+
+/* ----------------------------- Yardımcılar ----------------------------- */
+const TL = new Intl.NumberFormat("tr-TR",{minimumFractionDigits:2,maximumFractionDigits:2});
+const $ = s => document.querySelector(s);
+const input = $("#barcode");
+const resultEl = $("#result");
+
+function gecerliFiyat(u){ return (u.indirimli && u.indirimli > 0) ? u.indirimli : u.satis; }
+
+function stokDurumu(stok){
+  if(stok <= 0) return {cls:"out", txt:"STOK YOK"};
+  if(stok <= 3) return {cls:"low", txt:"SON "+stok+" ADET"};
+  return {cls:"ok", txt:"STOKTA · "+stok+" ADET"};
+}
+
+/* ----------------------------- Sorgulama ----------------------------- */
+function sorgula(barkodRaw){
+  const barkod = (barkodRaw ?? input.value).trim();
+  if(!barkod) return;
+  const u = URUNLER[barkod];
+  if(u){ gosterUrun(barkod, u); ekleSonTaranan(u.ad, gecerliFiyat(u), true); }
+  else { gosterBulunamadi(barkod); ekleSonTaranan("Bulunamadı ("+barkod+")", null, false); }
+  input.value = "";
+  input.focus();
+}
+
+function gosterUrun(barkod, u){
+  const fiyat = gecerliFiyat(u);
+  const indirimVar = u.indirimli && u.indirimli > 0;
+  const s = stokDurumu(u.stok);
+  resultEl.innerHTML = `
+    <div class="card">
+      <div class="top">
+        <div class="pname">${u.ad}</div>
+        <div class="badge ${s.cls}">${s.txt}</div>
+      </div>
+      <div class="priceblock">
+        <div class="price">${TL.format(fiyat)}<span class="cur">TL</span></div>
+        ${indirimVar ? `<div class="oldprice">${TL.format(u.satis)} TL</div>` : ``}
+      </div>
+      <div class="kdv">KDV dahil fiyat${indirimVar ? " · indirimli" : ""}</div>
+      <div class="meta">
+        <div>Barkod<b>${barkod}</b></div>
+        <div>Stok kodu<b>${u.stokKodu}</b></div>
+      </div>
+    </div>`;
+}
+
+function gosterBulunamadi(barkod){
+  resultEl.innerHTML = `
+    <div class="notfound">
+      <div class="big">Ürün bulunamadı</div>
+      <div class="sub">Bu barkod son senkronda listede yok. Stok kodu ile elle arayın ya da yöneticiye bildirin.</div>
+      <div class="code">${barkod}</div>
+    </div>`;
+}
+
+/* ----------------------------- Son taranan ----------------------------- */
+const sonlar = [];
+function ekleSonTaranan(ad, fiyat, ok){
+  sonlar.unshift({ad, fiyat, ok});
+  if(sonlar.length > 5) sonlar.pop();
+  const wrap = $("#recentWrap");
+  wrap.style.display = "block";
+  $("#recentList").innerHTML = sonlar.map(x => `
+    <div class="item ${x.ok ? "" : "miss"}">
+      <div class="n">${x.ad}</div>
+      <div class="p">${x.ok ? TL.format(x.fiyat)+" TL" : "—"}</div>
+    </div>`).join("");
+}
+
+/* ----------------------------- Girdi olayları ----------------------------- */
+// El tipi okuyucu ve manuel giriş: Enter'a basınca sorgula.
+input.addEventListener("keydown", e => { if(e.key === "Enter"){ e.preventDefault(); sorgula(); }});
+$("#lookupBtn").addEventListener("click", () => sorgula());
+$("#clearBtn").addEventListener("click", () => { input.value=""; input.focus(); });
+
+// Ekranın boşuna dokununca girişi tekrar odakla (okuyucu her zaman yazabilsin).
+document.addEventListener("click", e => {
+  if(!e.target.closest("button") && !e.target.closest("#reader") && !e.target.closest(".chip")) input.focus();
+});
+
+// Test barkod çipleri
+$("#chipList").innerHTML = Object.keys(URUNLER).map(b => `<button class="chip" data-b="${b}">${b}</button>`).join("");
+$("#chipList").addEventListener("click", e => {
+  const b = e.target.closest(".chip"); if(b) sorgula(b.dataset.b);
+});
+
+/* ----------------------------- Kamera ----------------------------- */
+let scanner = null, camOn = false;
+$("#camBtn").addEventListener("click", async () => {
+  const readerEl = $("#reader");
+  if(camOn){ await stopCam(); return; }
+  if(typeof Html5Qrcode === "undefined"){
+    alert("Kamera kütüphanesi yüklenemedi. Bu ortamda kamera engelli olabilir; gerçek kurulumda (HTTPS) sorunsuz çalışır.");
+    return;
+  }
+  try{
+    scanner = new Html5Qrcode("reader");
+    readerEl.classList.add("on");
+    $("#camBtn").innerHTML = "Kamerayı kapat";
+    camOn = true;
+    await scanner.start(
+      { facingMode:"environment" },
+      { fps:10, qrbox:{width:240,height:130},
+        formatsToSupport:[ Html5QrcodeSupportedFormats.EAN_13, Html5QrcodeSupportedFormats.EAN_8,
+                           Html5QrcodeSupportedFormats.CODE_128, Html5QrcodeSupportedFormats.UPC_A ] },
+      (decoded) => { sorgula(decoded); stopCam(); },
+      () => {}
+    );
+  }catch(err){
+    readerEl.classList.remove("on");
+    $("#camBtn").innerHTML = "Kamerayla tara"; camOn = false;
+    alert("Kamera açılamadı. İzin verildiğinden emin olun. (Önizleme ortamında kamera engellenmiş olabilir — el okuyucu veya manuel giriş ile deneyin.)");
+  }
+});
+async function stopCam(){
+  try{ if(scanner){ await scanner.stop(); scanner.clear(); } }catch(e){}
+  $("#reader").classList.remove("on");
+  $("#camBtn").innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg> Kamerayla tara`;
+  camOn = false; input.focus();
+}
+
+input.focus();
+</script>
+</body>
+</html>
